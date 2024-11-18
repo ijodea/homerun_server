@@ -6,7 +6,10 @@ async function bootstrap() {
     logger: ['error', 'warn', 'debug', 'log', 'verbose'],
   });
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: [
+      'http://localhost:3000',
+      'https://ijodea.github.io', // GitHub Pages 도메인 추가
+    ],
     credentials: true,
   });
   await app.listen(8000);
