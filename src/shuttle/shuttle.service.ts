@@ -5,79 +5,90 @@ import * as path from 'path';
 @Injectable()
 export class ShuttleService {
   private getFilePath(filename: string): string {
-    // 프로젝트 루트 디렉토리 기준으로 경로 설정
-    return path.join(process.cwd(), 'src', 'timetable', filename);
+    const possiblePaths = [
+      path.join(process.cwd(), 'src', 'timetable', filename),
+      path.join(process.cwd(), 'dist', 'timetable', filename),
+      path.join(process.cwd(), 'timetable', filename),
+    ];
+
+    for (const filePath of possiblePaths) {
+      if (fs.existsSync(filePath)) {
+        console.log('Found timetable at:', filePath);
+        return filePath;
+      }
+    }
+    throw new Error(`Timetable file not found: ${filename}`);
+  }
+
+  private readCsvFile(filePath: string): string[][] {
+    try {
+      const csvData = fs.readFileSync(filePath, 'utf8');
+      const lines = csvData.trim().split('\n');
+      console.log(`Read ${lines.length} lines from ${filePath}`);
+      return lines.map((line) => line.split(','));
+    } catch (error) {
+      console.error(`Error reading CSV file ${filePath}:`, error);
+      throw error;
+    }
   }
 
   getGStationTimeGtoM(currentTime: Date): number | null {
-    // 기흥 -> 명지대
-    const csvFilePath = this.getFilePath('gStation.csv');
     try {
-      const csvData = fs.readFileSync(csvFilePath, 'utf8');
-      const lines = csvData.trim().split('\n');
-      const MJUtoGS = lines.slice(1).map((line) => {
-        const columns = line.split(',');
-        const depart_school_m = Number(columns[3]);
-        return depart_school_m;
-      });
+      const csvData = this.readCsvFile(this.getFilePath('gStation.csv'));
+
+      console.log('First few rows of gStation.csv:', csvData.slice(0, 3));
 
       const currentMinutes =
         currentTime.getHours() * 60 + currentTime.getMinutes();
+      console.log('Current minutes from midnight:', currentMinutes);
+
+      const MJUtoGS = csvData.slice(1).map((columns) => {
+        const minutes = Number(columns[3]);
+        console.log('Parsed minutes:', minutes);
+        return minutes;
+      });
+
       const nextBusMinutes = MJUtoGS.find(
         (busTime) => busTime >= currentMinutes,
       );
+      console.log('Next bus minutes:', nextBusMinutes);
 
       return nextBusMinutes !== undefined
         ? nextBusMinutes - currentMinutes
         : null;
     } catch (error) {
-      console.error(`Error reading file ${csvFilePath}:`, error);
+      console.error('Error in getGStationTimeGtoM:', error);
       return null;
     }
   }
 
   getMStationTimeGtoM(currentTime: Date): number | null {
-    // 기흥 -> 명지대
-    const csvFilePath = this.getFilePath('mStation.csv');
     try {
-      const csvData = fs.readFileSync(csvFilePath, 'utf8');
-      const lines = csvData.trim().split('\n');
-      const MJUtoMS = lines.slice(1).map((line) => {
-        const columns = line.split(',');
-        const depart_school_m = Number(columns[3]);
-        return depart_school_m;
-      });
-
+      const csvData = this.readCsvFile(this.getFilePath('mStation.csv'));
       const currentMinutes =
         currentTime.getHours() * 60 + currentTime.getMinutes();
+      const MJUtoMS = csvData.slice(1).map((columns) => Number(columns[3]));
+
       const nextBusMinutes = MJUtoMS.find(
         (busTime) => busTime >= currentMinutes,
       );
-
       return nextBusMinutes !== undefined
         ? nextBusMinutes - currentMinutes
         : null;
     } catch (error) {
-      console.error(`Error reading file ${csvFilePath}:`, error);
+      console.error('Error in getMStationTimeGtoM:', error);
       return null;
     }
   }
 
   getEverlineTimeGtoM(m: number, currentTime: Date): number | null {
-    // 기흥 -> 명지대
-    const csvFilePath = this.getFilePath('everline.csv');
     try {
-      const csvData = fs.readFileSync(csvFilePath, 'utf8');
-      const lines = csvData.trim().split('\n');
-      const MStoGS = lines.slice(1).map((line) => {
-        const columns = line.split(',');
-        const depart_school_m = Number(columns[0]);
-        return depart_school_m;
-      });
-
-      m += 10;
+      const csvData = this.readCsvFile(this.getFilePath('everline.csv'));
       const currentMinutes =
         currentTime.getHours() * 60 + currentTime.getMinutes();
+      const MStoGS = csvData.slice(1).map((columns) => Number(columns[0]));
+
+      m += 10; // 환승 시간 고려
       const nextSubwayMinutes = MStoGS.find(
         (subwayTime) => subwayTime >= m + currentMinutes,
       );
@@ -86,64 +97,46 @@ export class ShuttleService {
         ? nextSubwayMinutes - currentMinutes
         : null;
     } catch (error) {
-      console.error(`Error reading file ${csvFilePath}:`, error);
+      console.error('Error in getEverlineTimeGtoM:', error);
       return null;
     }
   }
 
   getGStationTimeMtoG(currentTime: Date): number | null {
-    // 명지대 -> 기흥
-    const csvFilePath = this.getFilePath('gStation.csv');
     try {
-      const csvData = fs.readFileSync(csvFilePath, 'utf8');
-      const lines = csvData.trim().split('\n');
-      const MJUtoGS = lines.slice(1).map((line) => {
-        const columns = line.split(',');
-        const depart_school_m = Number(columns[2]);
-        return depart_school_m;
-      });
-
+      const csvData = this.readCsvFile(this.getFilePath('gStation.csv'));
       const currentMinutes =
         currentTime.getHours() * 60 + currentTime.getMinutes();
+      const MJUtoGS = csvData.slice(1).map((columns) => Number(columns[2]));
+
       const nextBusMinutes = MJUtoGS.find(
         (busTime) => busTime >= currentMinutes,
       );
-
       return nextBusMinutes !== undefined
         ? nextBusMinutes - currentMinutes
         : null;
     } catch (error) {
-      console.error(`Error reading file ${csvFilePath}:`, error);
+      console.error('Error in getGStationTimeMtoG:', error);
       return null;
     }
   }
 
   getMStationTimeMtoG(currentTime: Date): number | null {
-    // 명지대 -> 기흥
-    const csvFilePath = this.getFilePath('mStation.csv');
     try {
-      const csvData = fs.readFileSync(csvFilePath, 'utf8');
-      const lines = csvData.trim().split('\n');
-      const MJUtoMS = lines.slice(1).map((line) => {
-        const columns = line.split(',');
-        const depart_school_m = Number(columns[2]);
-        return depart_school_m;
-      });
-
+      const csvData = this.readCsvFile(this.getFilePath('mStation.csv'));
       const currentMinutes =
         currentTime.getHours() * 60 + currentTime.getMinutes();
+      const MJUtoMS = csvData.slice(1).map((columns) => Number(columns[2]));
+
       const nextBusMinutes = MJUtoMS.find(
         (busTime) => busTime >= currentMinutes,
       );
-
       return nextBusMinutes !== undefined
         ? nextBusMinutes - currentMinutes
         : null;
     } catch (error) {
-      console.error(`Error reading file ${csvFilePath}:`, error);
+      console.error('Error in getMStationTimeMtoG:', error);
       return null;
     }
   }
-
-  // 에버라인 시간 구현 필요 근데 에버라인 시간표가 없음 ㅋㅋ
 }
