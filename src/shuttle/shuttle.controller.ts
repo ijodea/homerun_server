@@ -8,6 +8,7 @@ export class ShuttleController {
   @Get('mju-to-giheung')
   getMtoGShuttle() {
     const currentTime = new Date();
+    console.log(currentTime);
     const m = this.shuttleService.getMStationTimeMtoG(currentTime);
     const g = this.shuttleService.getGStationTimeMtoG(currentTime);
 
@@ -25,6 +26,7 @@ export class ShuttleController {
   @Get('giheung-to-mju')
   getGtoMShuttle() {
     const currentTime = new Date();
+    console.log(currentTime);
     const m = this.shuttleService.getMStationTimeGtoM(currentTime);
     const el = this.shuttleService.getEverlineTimeGtoM(m, currentTime);
     const g = this.shuttleService.getGStationTimeGtoM(currentTime);
