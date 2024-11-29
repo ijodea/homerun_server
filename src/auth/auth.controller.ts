@@ -12,7 +12,7 @@ import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 
-const URL = 'http://localhost:3000';
+const URL = 'https://ijodea.github.io';
 
 @Controller()
 export class AuthController {
