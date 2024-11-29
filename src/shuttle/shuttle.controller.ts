@@ -1,100 +1,51 @@
 import { Controller, Get } from '@nestjs/common';
 import { ShuttleService } from './shuttle.service';
-
+//주어진 경로에 대해 다음 셔틀 버스의 정보를 제공하는 기능 수행
 @Controller('shuttle')
 export class ShuttleController {
   constructor(private readonly shuttleService: ShuttleService) {}
 
-  private getKoreanTime(): Date {
-    const now = new Date();
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    return new Date(utc + 3600000 * 9); // UTC+9
-  }
-
   @Get('mju-to-giheung')
   getMtoGShuttle() {
-    const currentTime = this.getKoreanTime();
-    console.log('Current Korean Time:', currentTime);
-
+    const currentTime = this.shuttleService.getKoreanTime();
+    const today = this.shuttleService.getDay();
     const m = this.shuttleService.getMStationTimeMtoG(currentTime);
-    console.log('Next M Station Time:', m);
+    const el = this.shuttleService.getEverlineTimeMtoG(m, currentTime);
+    const g = this.shuttleService.getGStationTimeMtoG(today, currentTime);
 
-    const g = this.shuttleService.getGStationTimeMtoG(currentTime);
-    console.log('Next G Station Time:', g);
+    const eta_el = el + 16;
+    const eta_g = g + 15;
 
-    if (m !== null && g !== null) {
-      if (g <= m) {
-        return {
-          nextShuttle: '기흥역 셔틀버스',
-          time: g,
-          currentTime: currentTime.toISOString(),
-          estimatedArrival: new Date(
-            currentTime.getTime() + g * 60000,
-          ).toISOString(),
-        };
+    if (m !== null && g !== null && el !== null) {
+      if (eta_g <= eta_el) {
+        return { nextShuttle: '기흥역 셔틀버스', time: g };
       } else {
-        return {
-          nextShuttle: '명지대역 셔틀버스',
-          time: m,
-          currentTime: currentTime.toISOString(),
-          estimatedArrival: new Date(
-            currentTime.getTime() + m * 60000,
-          ).toISOString(),
-        };
+        return { nextShuttle: '명지대역 셔틀버스', time: m };
       }
     } else {
-      return {
-        message: '오늘은 더 이상 셔틀이 없습니다.',
-        currentTime: currentTime.toISOString(),
-      };
+      return { message: '오늘은 더 이상 셔틀이 없습니다.' };
     }
   }
 
   @Get('giheung-to-mju')
   getGtoMShuttle() {
-    const currentTime = this.getKoreanTime();
-    console.log('Current Korean Time:', currentTime);
+    const currentTime = this.shuttleService.getKoreanTime();
+    const today = this.shuttleService.getDay();
+    const el = this.shuttleService.getEverlineTimeGtoM(currentTime);
+    const m = this.shuttleService.getMStationTimeGtoM(el, currentTime);
+    const g = this.shuttleService.getGStationTimeGtoM(today, currentTime);
 
-    const m = this.shuttleService.getMStationTimeGtoM(currentTime);
-    console.log('Next M Station Time:', m);
-
-    const el = this.shuttleService.getEverlineTimeGtoM(m, currentTime);
-    console.log('Next Everline Time:', el);
-
-    const g = this.shuttleService.getGStationTimeGtoM(currentTime);
-    console.log('Next G Station Time:', g);
-
-    const eta_el = el !== null ? el + 16 : null;
-    const eta_g = g !== null ? g + 15 : null;
-
-    console.log('ETA Everline:', eta_el);
-    console.log('ETA G Station:', eta_g);
+    const eta_m = m + 10;
+    const eta_g = g + 15;
 
     if (m !== null && g !== null && el !== null) {
-      if (eta_g <= eta_el) {
-        return {
-          nextShuttle: '기흥역 셔틀버스',
-          time: g,
-          currentTime: currentTime.toISOString(),
-          estimatedArrival: new Date(
-            currentTime.getTime() + g * 60000,
-          ).toISOString(),
-        };
+      if (eta_g <= eta_m) {
+        return { nextShuttle: '기흥역 셔틀버스', time: g };
       } else {
-        return {
-          nextShuttle: '명지대역 셔틀버스',
-          time: m,
-          currentTime: currentTime.toISOString(),
-          estimatedArrival: new Date(
-            currentTime.getTime() + m * 60000,
-          ).toISOString(),
-        };
+        return { nextShuttle: '명지대역 셔틀버스', time: m };
       }
     } else {
-      return {
-        message: '오늘은 더 이상 셔틀이 없습니다.',
-        currentTime: currentTime.toISOString(),
-      };
+      return { message: '오늘은 더 이상 셔틀이 없습니다.' };
     }
   }
 }

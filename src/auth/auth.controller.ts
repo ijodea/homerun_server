@@ -26,7 +26,7 @@ export class AuthController {
   @Header('Content-Type', 'text/html')
   async kakaoRedirect(@Res() res: Response): Promise<void> {
     const REST_API_KEY = this.configService.get<string>('KAKAO_REST_API_KEY');
-    const REDIRECT_URI = 'https://ijodea.github.io/oauth/callback';
+    const REDIRECT_URI = 'http://localhost:3000/oauth/callback';
 
     this.logger.debug(`REST_API_KEY: ${REST_API_KEY}`);
     this.logger.debug(`REDIRECT_URI: ${REDIRECT_URI}`);
@@ -59,7 +59,7 @@ export class AuthController {
       this.logger.debug(`Processing code: ${code}`);
 
       const REST_API_KEY = this.configService.get<string>('KAKAO_REST_API_KEY');
-      const REDIRECT_URI = 'https://ijodea.github.io/oauth/callback';
+      const REDIRECT_URI = 'http://localhost:3000/oauth/callback';
 
       const userData = await this.authService.kakaoLogin(
         REST_API_KEY,
@@ -68,7 +68,7 @@ export class AuthController {
       );
 
       // CORS 헤더 설정
-      res.header('Access-Control-Allow-Origin', 'https://ijodea.github.io');
+      res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.header(
