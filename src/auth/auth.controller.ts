@@ -14,6 +14,8 @@ import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 
+const URL = 'http://localhost:3000';
+
 @Controller()
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -41,7 +43,6 @@ export class AuthController {
   @Get('auth/kakao-login-page')
   @Header('Content-Type', 'text/html')
   async kakaoRedirect(@Res() res: Response): Promise<void> {
-    const URL = this.configService.get<string>('FRONT_URL');
     const REST_API_KEY = this.configService.get<string>('KAKAO_REST_API_KEY');
     const REDIRECT_URI = `${URL}/oauth/callback`;
 
@@ -55,7 +56,6 @@ export class AuthController {
   @Get('oauth')
   async handleKakaoCallback(@Query('code') code: string, @Res() res: Response) {
     try {
-      const URL = this.configService.get<string>('FRONT_URL');
       if (!code) {
         throw new HttpException(
           'Authorization code is required',
