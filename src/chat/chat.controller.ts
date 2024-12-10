@@ -10,7 +10,7 @@ export class ChatController {
   async createRoom(
     @Param('groupId') groupId: string,
   ): Promise<ChatRoomResponse> {
-    console.log(`[ChatController] createRoom - groupId: ${groupId}`);
+    // console.log(`[ChatController] createRoom - groupId: ${groupId}`);
     const room = await this.chatService.createChatRoom(groupId);
     if (!room) {
       console.error(
@@ -21,9 +21,9 @@ export class ChatController {
         message: '채팅방 생성에 실패했습니다',
       };
     }
-    console.log(
-      `[ChatController] createRoom - Chat room created with id: ${room.id}`,
-    );
+    // console.log(
+    //   `[ChatController] createRoom - Chat room created with id: ${room.id}`,
+    // );
     return {
       success: true,
       data: {
