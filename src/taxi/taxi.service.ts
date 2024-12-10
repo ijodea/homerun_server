@@ -97,6 +97,13 @@ export class TaxiService {
   private findUserActiveGroup(userId: string): TaxiGroup | null {
     for (const group of this.groupStorage.activeGroups.values()) {
       if (group.members.some((member) => member.userId === userId)) {
+        // 그룹의 멤버 수가 MAX_GROUP_SIZE에 도달했는지 확인
+        if (group.members.length >= this.MAX_GROUP_SIZE && !group.isFull) {
+          group.isFull = true;
+          group.status = 'matched';
+          // 활성 그룹에서 제거하고 완료된 그룹으로 이동
+          this.moveToCompletedGroups(group);
+        }
         return group;
       }
     }
@@ -200,6 +207,14 @@ export class TaxiService {
           success: false,
           message: '그룹을 찾을 수 없습니다.',
         };
+      }
+
+      // 그룹의 멤버 수가 MAX_GROUP_SIZE에 도달했는지 확인
+      if (group.members.length >= this.MAX_GROUP_SIZE && !group.isFull) {
+        group.isFull = true;
+        group.status = 'matched';
+        // 활성 그룹에서 제거하고 완료된 그룹으로 이동
+        await this.moveToCompletedGroups(group);
       }
 
       console.log(`Found group ${groupId}:`, {
