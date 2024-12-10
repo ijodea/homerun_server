@@ -220,6 +220,23 @@ export class TaxiService {
     };
   }
 
+  private async moveToCompletedGroups(group: TaxiGroup) {
+    this.groupStorage.activeGroups.delete(group.id);
+    const completedGroup: TaxiGroup = {
+      ...group,
+      completedAt: new Date(),
+      status: 'completed',
+      isActive: false,
+    };
+    this.groupStorage.completedGroups.set(group.id, completedGroup);
+    console.log(
+      `Moved group ${group.id} to completed groups. Members: ${group.members
+        .map((m) => m.userId)
+        .join(', ')}`,
+    );
+    return completedGroup;
+  }
+
   private generateGroupId(): string {
     // 랜덤 4자리 숫자 생성
     return Math.floor(1000 + Math.random() * 9000).toString();
@@ -297,10 +314,14 @@ export class TaxiService {
   ): Promise<LocationUpdateResponse> {
     console.log('받은 위치 정보:', locationData);
 
+    // 각 요청마다 고유한 세션 ID 생성
     const sessionId = this.generateSessionId(locationData.userId);
+
+    // 매칭 가능한 그룹 찾기
     let group = this.findMatchableGroup(locationData.to);
 
     if (!group) {
+      // 적합한 그룹이 없으면 새 그룹 생성
       group = this.createNewGroup(
         locationData.to,
         locationData.userId,
@@ -309,128 +330,38 @@ export class TaxiService {
       console.log(
         `Created new group ${group.id} for user ${locationData.userId} (Session: ${sessionId})`,
       );
-      this.groupStorage.activeGroups.set(group.id, group);
     } else {
-      // 중복 체크 강화 - 같은 userId를 가진 멤버가 있는지 확인
-      const existingMember = group.members.find(
-        (member) => member.userId === locationData.userId,
+      // 기존 그룹에 사용자 추가
+      group.members.push({
+        userId: locationData.userId,
+        sessionId,
+        joinedAt: new Date(),
+      });
+      console.log(
+        `Added user ${locationData.userId} (Session: ${sessionId}) to existing group ${group.id}`,
       );
 
-      if (!existingMember) {
-        // 실제 그룹의 현재 멤버 수 로깅
-        console.log(
-          `Current unique members in group ${group.id}: ${group.members.length}`,
-        );
-
-        group.members.push({
-          userId: locationData.userId,
-          sessionId,
-          joinedAt: new Date(),
-        });
-
-        console.log(
-          `Added user ${locationData.userId} to group ${group.id}. New member count: ${group.members.length}`,
-        );
-
-        // 유효한 멤버 수가 MAX_GROUP_SIZE에 도달했는지 확인
-        const uniqueMembers = new Set(
-          group.members.map((member) => member.userId),
-        ).size;
-
-        if (uniqueMembers >= this.MAX_GROUP_SIZE) {
-          console.log(
-            `Group ${group.id} has reached ${uniqueMembers} unique members. Moving to completed state...`,
-          );
-
-          try {
-            group.isFull = true;
-            group.status = 'matched';
-
-            // 중복 멤버 제거
-            const uniqueMemberIds = new Set();
-            group.members = group.members.filter((member) => {
-              if (!uniqueMemberIds.has(member.userId)) {
-                uniqueMemberIds.add(member.userId);
-                return true;
-              }
-              return false;
-            });
-
-            // 상태 업데이트
-            this.groupStorage.activeGroups.set(group.id, group);
-
-            // completed로 이동
-            group = await this.moveToCompletedGroups(group);
-            console.log(
-              `Successfully moved group ${group.id} to completed status`,
-            );
-          } catch (error) {
-            console.error('Error while updating group status:', error);
-          }
-        } else {
-          console.log(
-            `Group ${group.id} has ${uniqueMembers} unique members, needs ${this.MAX_GROUP_SIZE}`,
-          );
-          this.groupStorage.activeGroups.set(group.id, group);
-        }
-      } else {
-        console.log(
-          `User ${locationData.userId} already exists in group ${group.id}`,
-        );
+      // 그룹이 가득 찼는지 확인
+      if (group.members.length >= this.MAX_GROUP_SIZE) {
+        group.isFull = true;
+        group.status = 'matched';
+        await this.moveToCompletedGroups(group);
       }
     }
 
-    // 최종 상태 확인 및 로깅
-    const uniqueMemberCount = new Set(
-      group.members.map((member) => member.userId),
-    ).size;
-    console.log(`Final group state:`, {
-      groupId: group.id,
-      uniqueMembers: uniqueMemberCount,
-      totalMembers: group.members.length,
-      isFull: group.isFull,
-      status: group.status,
-    });
-
     return {
       success: true,
-      message: `${locationData.to === 'mju' ? '기흥역 → 명지대' : '명지대 → 기흥역'} | 그룹 번호: ${group.id} (${uniqueMemberCount}/${this.MAX_GROUP_SIZE}명)`,
+      message: `${locationData.to === 'mju' ? '기흥역 → 명지대' : '명지대 → 기흥역'} | 그룹 번호: ${group.id} (${group.members.length}/${this.MAX_GROUP_SIZE}명)`,
       data: {
         ...locationData,
         isValidLocation: true,
         group: {
           groupId: group.id,
-          memberCount: uniqueMemberCount,
+          memberCount: group.members.length,
           isFull: group.isFull,
           status: group.status,
         },
       },
     };
-  }
-
-  private async moveToCompletedGroups(group: TaxiGroup) {
-    console.log(`Starting to move group ${group.id} to completed groups...`);
-
-    // active groups에서 제거
-    this.groupStorage.activeGroups.delete(group.id);
-
-    const completedGroup: TaxiGroup = {
-      ...group,
-      completedAt: new Date(),
-      status: 'completed',
-      isActive: false,
-      isFull: true,
-    };
-
-    // completed groups에 추가
-    this.groupStorage.completedGroups.set(completedGroup.id, completedGroup);
-
-    console.log(
-      `Successfully moved group ${completedGroup.id} to completed groups. Status: ${completedGroup.status}, Members: ${completedGroup.members
-        .map((m) => m.userId)
-        .join(', ')}`,
-    );
-
-    return completedGroup;
   }
 }
