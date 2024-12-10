@@ -220,23 +220,6 @@ export class TaxiService {
     };
   }
 
-  private async moveToCompletedGroups(group: TaxiGroup) {
-    this.groupStorage.activeGroups.delete(group.id);
-    const completedGroup: TaxiGroup = {
-      ...group,
-      completedAt: new Date(),
-      status: 'completed',
-      isActive: false,
-    };
-    this.groupStorage.completedGroups.set(group.id, completedGroup);
-    console.log(
-      `Moved group ${group.id} to completed groups. Members: ${group.members
-        .map((m) => m.userId)
-        .join(', ')}`,
-    );
-    return completedGroup;
-  }
-
   private generateGroupId(): string {
     // 랜덤 4자리 숫자 생성
     return Math.floor(1000 + Math.random() * 9000).toString();
@@ -314,14 +297,11 @@ export class TaxiService {
   ): Promise<LocationUpdateResponse> {
     console.log('받은 위치 정보:', locationData);
 
-    // 각 요청마다 고유한 세션 ID 생성
     const sessionId = this.generateSessionId(locationData.userId);
-
-    // 매칭 가능한 그룹 찾기
     let group = this.findMatchableGroup(locationData.to);
 
     if (!group) {
-      // 적합한 그룹이 없으면 새 그룹 생성
+      // 새 그룹 생성
       group = this.createNewGroup(
         locationData.to,
         locationData.userId,
@@ -331,21 +311,37 @@ export class TaxiService {
         `Created new group ${group.id} for user ${locationData.userId} (Session: ${sessionId})`,
       );
     } else {
-      // 기존 그룹에 사용자 추가
-      group.members.push({
-        userId: locationData.userId,
-        sessionId,
-        joinedAt: new Date(),
-      });
-      console.log(
-        `Added user ${locationData.userId} (Session: ${sessionId}) to existing group ${group.id}`,
-      );
+      // 기존 그룹에 사용자 추가 전에 중복 체크
+      if (
+        !group.members.some((member) => member.userId === locationData.userId)
+      ) {
+        group.members.push({
+          userId: locationData.userId,
+          sessionId,
+          joinedAt: new Date(),
+        });
+        console.log(
+          `Added user ${locationData.userId} (Session: ${sessionId}) to existing group ${group.id}`,
+        );
 
-      // 그룹이 가득 찼는지 확인
-      if (group.members.length >= this.MAX_GROUP_SIZE) {
-        group.isFull = true;
-        group.status = 'matched';
-        await this.moveToCompletedGroups(group);
+        // 그룹이 가득 찼는지 확인 - 수정된 부분
+        if (group.members.length >= this.MAX_GROUP_SIZE) {
+          console.log(
+            `Group ${group.id} is now full with ${group.members.length} members`,
+          );
+          group.isFull = true;
+          group.status = 'matched';
+
+          // 먼저 active groups에서 상태 업데이트
+          this.groupStorage.activeGroups.set(group.id, group);
+
+          // 그룹을 completed로 이동
+          const completedGroup = await this.moveToCompletedGroups(group);
+          group = completedGroup; // 업데이트된 그룹 정보 사용
+        } else {
+          // 그룹이 아직 가득 차지 않은 경우에도 상태 업데이트
+          this.groupStorage.activeGroups.set(group.id, group);
+        }
       }
     }
 
@@ -363,5 +359,33 @@ export class TaxiService {
         },
       },
     };
+  }
+
+  // moveToCompletedGroups 메서드도 수정
+  private async moveToCompletedGroups(group: TaxiGroup) {
+    console.log(`Starting to move group ${group.id} to completed groups...`);
+
+    // 먼저 active groups에서 제거
+    this.groupStorage.activeGroups.delete(group.id);
+
+    // completed group 생성
+    const completedGroup: TaxiGroup = {
+      ...group,
+      completedAt: new Date(),
+      status: 'completed',
+      isActive: false,
+      isFull: true,
+    };
+
+    // completed groups에 추가
+    this.groupStorage.completedGroups.set(group.id, completedGroup);
+
+    console.log(
+      `Successfully moved group ${group.id} to completed groups. Members: ${completedGroup.members
+        .map((m) => m.userId)
+        .join(', ')}`,
+    );
+
+    return completedGroup;
   }
 }
