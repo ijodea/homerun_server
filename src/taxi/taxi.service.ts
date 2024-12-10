@@ -73,10 +73,14 @@ export class TaxiService {
     let mostRecent = 0;
 
     for (const group of this.groupStorage.activeGroups.values()) {
+      // 멤버 수 체크를 먼저 수행
+      if (group.members.length >= this.MAX_GROUP_SIZE) {
+        continue; // 이미 가득 찬 그룹은 건너뛰기
+      }
+
       if (
         group.destination === destination &&
         !group.isFull &&
-        group.members.length < this.MAX_GROUP_SIZE &&
         group.status === 'waiting'
       ) {
         const groupTime = group.createdAt.getTime();
@@ -410,17 +414,19 @@ export class TaxiService {
           },
         };
       }
+    }
 
-      // 그룹이 가득 찼는지 확인
-      if (group.members.length >= this.MAX_GROUP_SIZE) {
-        group.isFull = true;
-        group.status = 'matched';
-        // 활성 그룹에서 제거하고 완료된 그룹으로 이동
-        await this.moveToCompletedGroups(group);
-        console.log(
-          `Moved group ${group.id} to completed groups. Members: ${group.members.map((m) => m.userId).join(', ')}`,
-        );
-      }
+    // 그룹이 가득 찼는지 확인 - else 블록 밖에서 체크
+    if (group.members.length >= this.MAX_GROUP_SIZE) {
+      group.isFull = true;
+      group.status = 'matched';
+      // 활성 그룹에서 제거하고 완료된 그룹으로 이동
+      await this.moveToCompletedGroups(group);
+      console.log(
+        `Moved group ${group.id} to completed groups. Members: ${group.members
+          .map((m) => m.userId)
+          .join(', ')}`,
+      );
     }
 
     return {
