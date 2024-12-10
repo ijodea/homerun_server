@@ -75,6 +75,12 @@ export class ChatService {
         return null;
       }
 
+      // 그룹의 유효성 확인
+      if (!group.members || group.members.length === 0) {
+        console.log(`[ChatService] Group ${groupId} has no members`);
+        return null;
+      }
+
       // 그룹의 상태가 'matched' 또는 'completed'인지 확인
       if (group.status !== 'matched' && group.status !== 'completed') {
         console.log(

@@ -189,35 +189,43 @@ export class TaxiService {
   }
 
   async getGroupStatus(groupId: string): Promise<GroupStatus> {
-    const group =
-      this.groupStorage.activeGroups.get(groupId) ||
-      this.groupStorage.completedGroups.get(groupId);
+    try {
+      const group =
+        this.groupStorage.activeGroups.get(groupId) ||
+        this.groupStorage.completedGroups.get(groupId);
 
-    if (!group) {
-      console.warn(`Group not found: ${groupId}`);
+      if (!group) {
+        console.warn(`Group not found: ${groupId}`);
+        return {
+          success: false,
+          message: '그룹을 찾을 수 없습니다.',
+        };
+      }
+
+      console.log(`Found group ${groupId}:`, {
+        memberCount: group.members.length,
+        isFull: group.isFull,
+        createdAt: group.createdAt,
+        age: Date.now() - group.createdAt.getTime(),
+        members: group.members.map((m) => `${m.userId}(${m.sessionId})`),
+        isCompleted: this.groupStorage.completedGroups.has(groupId),
+      });
+
+      return {
+        success: true,
+        groupId: group.id,
+        memberCount: group.members.length,
+        memberIds: group.members.map((member) => member.userId),
+        isFull: group.isFull,
+        destination: group.destination,
+      };
+    } catch (error) {
+      console.error(`Error getting group status for ${groupId}:`, error);
       return {
         success: false,
-        message: '그룹을 찾을 수 없습니다.',
+        message: '그룹 상태 확인 중 오류가 발생했습니다.',
       };
     }
-
-    console.log(`Found group ${groupId}:`, {
-      memberCount: group.members.length,
-      isFull: group.isFull,
-      createdAt: group.createdAt,
-      age: Date.now() - group.createdAt.getTime(),
-      members: group.members.map((m) => `${m.userId}(${m.sessionId})`),
-      isCompleted: this.groupStorage.completedGroups.has(groupId),
-    });
-
-    return {
-      success: true,
-      groupId: group.id,
-      memberCount: group.members.length,
-      memberIds: group.members.map((member) => member.userId),
-      isFull: group.isFull,
-      destination: group.destination,
-    };
   }
 
   private async moveToCompletedGroups(group: TaxiGroup) {
